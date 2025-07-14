@@ -5,7 +5,7 @@ FROM nvidia/cuda:12.2.0-devel-ubuntu22.04
 LABEL maintainer="Kailash Lohar <kailashlohariitkgp@gmail.com>"
 
 # Set Working Directory
-WORKDIR /home
+WORKDIR /app
 
 RUN apt-get update && \
     apt-get install -y make cmake wget curl git parallel gcc g++ ocl-icd-libopencl1 opencl-headers clinfo gnupg python3 python3-pip \
@@ -15,7 +15,7 @@ RUN apt-get update && \
     bash Miniconda3-latest-Linux-x86_64.sh -b -p /miniconda && \
     rm -rf /var/lib/apt/lists/* && rm Miniconda3-latest-Linux-x86_64.sh
 ENV PATH=/miniconda/bin:$PATH
-COPY streamlit.yaml .
+COPY devops/streamlit/streamlit.yaml .
 RUN conda env create -f streamlit.yaml && conda clean --all --yes \
     && pip install posebusters
 
@@ -30,13 +30,13 @@ RUN curl -s -L https://nvidia.github.io/nvidia-container-runtime/gpgkey | apt-ke
 RUN mkdir -p /etc/OpenCL/vendors && echo "libnvidia-opencl.so.1" > /etc/OpenCL/vendors/nvidia.icd
 
 # Copy and Compile Uni-Dock
-COPY /unidock /home
+COPY devops/streamlit/unidock /app
 RUN cmake -B build && cmake --build build -j`nprocs` && cmake --install build
 
 # Set AGANDOCK_SCRIPTS environment variable
-ENV AGANDOCK_SCRIPTS=/home/shifath/AGANDOCK/main/streamlit/scripts
+ENV AGANDOCK_SCRIPTS=/app/main/streamlit/scripts
 
-WORKDIR /home
+WORKDIR /app
 
 # Expose Streamlit Port
 CMD ["tail", "-f", "/dev/null"]

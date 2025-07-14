@@ -39,11 +39,11 @@ docker build -t agandock-env .
 Once the image is built, run a container from it. This command starts the container in detached mode, grants it access to all available GPUs, and mounts the local project directory into the container.
 
 ```bash
-docker run -dit --gpus all --name agandock_cli_app -v "$(pwd)":/home/shifath/AGANDOCK agandock-env
+docker run -dit --gpus all --name agandock_cli_app -v "$(pwd)":/app agandock-env
 ```
 - `--gpus all`: Provides the container with access to the host's GPUs.
 - `--name agandock_cli_app`: Assigns a memorable name to the container.
-- `-v "$(pwd)":/home/shifath/AGANDOCK`: Mounts your current project directory into the container, allowing the CLI to read inputs and write outputs directly to your project folder.
+- `-v "$(pwd)":/app`: Mounts your current project directory into the container, allowing the CLI to read inputs and write outputs directly to your project folder.
 
 ---
 
@@ -52,7 +52,7 @@ docker run -dit --gpus all --name agandock_cli_app -v "$(pwd)":/home/shifath/AGA
 With the container running, install the `agandock-cli` package inside the container's Python environment. This makes the `agandock` command available.
 
 ```bash
-docker exec agandock_cli_app pip install -e /home/shifath/AGANDOCK/cli/agandock-cli
+docker exec agandock_cli_app pip install -e /app/cli/agandock-cli
 ```
 - `pip install -e`: Installs the package in "editable" mode, which means any changes you make to the local source code will be immediately reflected inside the container without needing to reinstall.
 
@@ -74,10 +74,10 @@ This command runs a docking pipeline for a single molecule provided as a SMILES 
 **Example:**
 ```bash
 docker exec agandock_cli_app agandock run_docking \
-  /home/shifath/AGANDOCK/agandock_test_run \
-  --pdb_file /home/shifath/AGANDOCK/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1.pdb \
-  --pdbqt_file /home/shifath/AGANDOCK/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1.pdbqt \
-  --config_file /home/shifath/AGANDOCK/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1_conf.txt \
+  /app/agandock_test_run \
+  --pdb_file /app/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1.pdb \
+  --pdbqt_file /app/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1.pdbqt \
+  --config_file /app/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1_conf.txt \
   --input_type "Single SMILES" \
   --input_smiles CCO
 ```
@@ -89,12 +89,12 @@ This command runs a docking pipeline for multiple molecules provided in a CSV fi
 **Example:**
 ```bash
 docker exec agandock_cli_app agandock run_docking \
-  /home/shifath/AGANDOCK/agandock_test_run_multi \
-  --pdb_file /home/shifath/AGANDOCK/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1.pdb \
-  --pdbqt_file /home/shifath/AGANDOCK/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1.pdbqt \
-  --config_file /home/shifath/AGANDOCK/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1_conf.txt \
+  /app/agandock_test_run_multi \
+  --pdb_file /app/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1.pdb \
+  --pdbqt_file /app/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1.pdbqt \
+  --config_file /app/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1_conf.txt \
   --input_type "Multiple SMILES" \
-  --input_csv /home/shifath/AGANDOCK/cli/agandock-cli/agandock_cli/inputs/ligands.csv
+  --input_csv /app/cli/agandock-cli/agandock_cli/inputs/ligands.csv
 ```
 
 ### c. Run Filter
@@ -104,9 +104,9 @@ This command filters the results of a previous docking run based on an affinity 
 **Example:**
 ```bash
 docker exec agandock_cli_app agandock run_filter \
-  /home/shifath/AGANDOCK/agandock_test_run_multi \
+  /app/agandock_test_run_multi \
   -5.0 0.0 \
-  --pdb_file /home/shifath/AGANDOCK/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1.pdb
+  --pdb_file /app/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1.pdb
 ```
 
 ---
