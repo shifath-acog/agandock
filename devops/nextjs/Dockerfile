@@ -15,8 +15,8 @@ RUN apt-get update && \
     bash Miniconda3-latest-Linux-x86_64.sh -b -p /miniconda && \
     rm -rf /var/lib/apt/lists/* && rm Miniconda3-latest-Linux-x86_64.sh
 ENV PATH=/miniconda/bin:$PATH
-COPY devops/streamlit/streamlit.yaml .
-RUN conda env create -f streamlit.yaml && conda clean --all --yes \
+COPY devops/nextjs/nextjs.yaml .
+RUN conda env create -f nextjs.yaml && conda clean --all --yes \
     && pip install posebusters
 
 # Install Boost 1.77.0
@@ -30,11 +30,11 @@ RUN curl -s -L https://nvidia.github.io/nvidia-container-runtime/gpgkey | apt-ke
 RUN mkdir -p /etc/OpenCL/vendors && echo "libnvidia-opencl.so.1" > /etc/OpenCL/vendors/nvidia.icd
 
 # Copy and Compile Uni-Dock
-COPY devops/streamlit/unidock /app
+COPY devops/nextjs/unidock /app
 RUN cmake -B build && cmake --build build -j`nprocs` && cmake --install build
 
 # Set AGANDOCK_SCRIPTS environment variable
-ENV AGANDOCK_SCRIPTS=/app/main/streamlit/scripts
+ENV AGANDOCK_SCRIPTS=/app/main/nextjs/scripts
 
 WORKDIR /app
 

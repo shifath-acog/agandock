@@ -1,0 +1,2 @@
+/app/gemini_final_test_multi_renamed/pipeline_files/5_pdbqt_for_docking/Ligand1.pdbqt
+/app/gemini_final_test_multi_renamed/pipeline_files/5_pdbqt_for_docking/Ligand2.pdbqt

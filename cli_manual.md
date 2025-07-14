@@ -31,7 +31,7 @@ The CLI runs inside a Docker container that includes all necessary dependencies,
 Navigate to the project's root directory and run the following command to build the Docker image. This may take some time as it downloads and installs all dependencies.
 
 ```bash
-docker build -t agandock-env .
+docker build -t agandock-env -f devops/nextjs/Dockerfile .
 ```
 
 ### b. Run the Docker Container
