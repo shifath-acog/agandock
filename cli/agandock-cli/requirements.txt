@@ -1,0 +1,6 @@
+pandas
+numpy
+rdkit
+openbabel-wheel
+torch
+psutil

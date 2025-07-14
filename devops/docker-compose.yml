@@ -1,0 +1,51 @@
+services:
+  jupyterlab:
+    build:
+      context: ./jupyterlab
+      dockerfile: Dockerfile
+    image: ${JP_IMAGE}
+    container_name: ${JP_CONTAINER}
+    ports:
+      - "${JP_PORT}:7777"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      - "../main:/home"
+    labels:
+      - "description=Jupyterlab for AganDock"
+      - "port=7777"
+    networks:
+      - agandock
+
+  streamlit:
+    build:
+      context: ./streamlit
+      dockerfile: Dockerfile
+    image: ${SL_IMAGE}
+    container_name: ${SL_CONTAINER}
+    ports:
+      - "${SL_PORT}:8501"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      - "../main/streamlit:/home"
+    shm_size: "8g" 
+    labels:
+      - "description=Streamlit App for AganDock"
+      - "port=8501"
+    networks:
+      - agandock
+
+networks:
+  agandock:
+    driver: bridge
