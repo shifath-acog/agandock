@@ -1,0 +1,1 @@
+/home/shifath/AGANDOCK/gemini_final_test_single/pipeline_files/5_pdbqt_for_docking/agan1.pdbqt

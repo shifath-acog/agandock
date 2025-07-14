@@ -1,6 +1,6 @@
 import os
 import re
-import csv 
+import csv
 import sys
 import time
 import math
@@ -39,6 +39,9 @@ logging.getLogger('openbabel').setLevel(logging.ERROR)
 logging.getLogger('pybel').setLevel(logging.ERROR)
 logging.getLogger("rdkit").setLevel(logging.ERROR)
 sys.stderr = stderr
+
+# Define script base path using environment variable with fallback
+SCRIPT_BASE = os.environ.get("AGANDOCK_SCRIPTS", "/home/shifath/AGANDOCK/main/streamlit/scripts")
 
 def check_availability():
     if "CUDA_VISIBLE_DEVICES" not in os.environ:
@@ -265,29 +268,6 @@ def copy_correct_pdbqt_files(folder_name, input_csv):
 
     print(f"\033[1m\033[34mCompounds filtered out using Dice Similarity: \033[91m{filtered_out}\033[0m")
 
-
-def copy_correct_pdbqt_file(folder_name, input_csv):
-    all_pdbqt_files = os.path.join(folder_name, "pipeline_files/3_pdbqt")
-    compounds_to_be_dock = os.path.join(folder_name, "pipeline_files/1_compounds_for_docking.csv")
-    output_dir = os.path.join(folder_name, "pipeline_files/5_pdbqt_for_docking")
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-
-    smiles_folder = os.path.join(folder_name, "pipeline_files/4_smiles")
-    smiles_count = sum(1 for _ in os.scandir(smiles_folder) if _.is_file())
-
-    df1 = pd.read_csv(compounds_to_be_dock)
-
-    filtered_out = smiles_count - len(df1)
-
-    for compound_name in df1['Name']:
-        input_file_path = os.path.join(all_pdbqt_files, f"{compound_name}.pdbqt")
-        output_file_path = os.path.join(output_dir, f"{compound_name}.pdbqt")
-
-        if os.path.exists(input_file_path):
-            shutil.copy(input_file_path, output_file_path)
-
-    print(f"\033[1m\033[34mCompounds filtered out using Dice Similarity: \033[91m{filtered_out}\033[0m")
 def create_ligands_path_batchwise(folder_name, batch_size=10):
     output_pdbqt = os.path.join(folder_name, "pipeline_files/5_pdbqt_for_docking")
 
@@ -509,7 +489,6 @@ def generate_table_html(filtered_df):
     """
     return table_html
 
-
 def final_output_without_pb(folder_name, input_csv, elapsed_time_seconds):
     input_smiles = os.path.join(folder_name, input_csv) if not os.path.isabs(input_csv) else input_csv
     affinity_path = os.path.join(folder_name, 'pipeline_files', '2_extract_affinity_from_pdbqt.csv')
@@ -538,7 +517,6 @@ def final_output_without_pb(folder_name, input_csv, elapsed_time_seconds):
     output_csv_path = os.path.join(folder_name, 'output.csv')
     df3.to_csv(output_csv_path, index=False)
     print(f"\nResults successfully saved to: {output_csv_path}")
-
 
 def extraction_based_on_threshold_for_pb(folder_name, lower_range, higher_range):
     print("")
@@ -636,6 +614,20 @@ def form_protein_ligands_complexes(folder_name, csv_path):
                 output_file.write('\n'.join(atom_lines) + '\n')
                 output_file.write(''.join(pdb_atom_lines))
 
+def run_script(script_name, folder_name):
+    script_path = os.path.join(SCRIPT_BASE, script_name)
+    if not os.path.isfile(script_path):
+        raise FileNotFoundError(f"Script {script_path} not found")
+    print(f"Running script: {script_path} with folder: {folder_name}")
+    result = subprocess.run(["/bin/bash", script_path, folder_name],
+                            capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"Error running {script_name}:")
+        print(f"STDOUT: {result.stdout}")
+        print(f"STDERR: {result.stderr}")
+        raise RuntimeError(f"{script_name} failed")
+    print(f"{script_name} completed successfully.")
+
 def run_docking_pipeline(pdb_file_path, pdbqt_file_path, config_file_path, input_type, input_csv_path, input_smiles, folder_name):
     os.makedirs(folder_name, exist_ok=True)
     pdb_file_destination = os.path.join(folder_name, os.path.basename(pdb_file_path))
@@ -660,18 +652,6 @@ def run_docking_pipeline(pdb_file_path, pdbqt_file_path, config_file_path, input
     df_no_salt = process_smiles_csv(folder_name, "input_smiles.csv")
     convert_smiles_to_sdf_parallel(folder_name, df_no_salt, num_conformations=10)
 
-    def run_script(script_name, folder_name):
-        script_path = f"/home/shifath/AGANDOCK/main/streamlit/scripts/{script_name}"
-        print(f"Running script: {script_path} with folder: {folder_name}")
-        result = subprocess.run(["/bin/bash", script_path, folder_name],
-                                capture_output=True, text=True)
-        if result.returncode != 0:
-            print(f"Error running {script_name}:")
-            print(f"STDOUT: {result.stdout}")
-            print(f"STDERR: {result.stderr}")
-            raise RuntimeError(f"{script_name} failed")
-        print(f"{script_name} completed successfully.")
-
     run_script("1_sdf_to_mol2.sh", folder_name)
     format_mol2_files(folder_name)
     run_script("2_mol2_to_pdbqt.sh", folder_name)
@@ -681,7 +661,7 @@ def run_docking_pipeline(pdb_file_path, pdbqt_file_path, config_file_path, input
     if input_type == "Multiple SMILES":
         copy_correct_pdbqt_files(folder_name, "input_smiles.csv")
     else:
-        copy_correct_pdbqt_file(folder_name, "input_smiles.csv")
+        copy_correct_pdbqt_files(folder_name, "input_smiles.csv")
 
     num_batches = create_ligands_path_batchwise(folder_name)
     ligand_batches = [f"unidock_pdbqt_batch_{i+1}.txt" for i in range(num_batches)]
@@ -716,8 +696,11 @@ def run_docking_pipeline(pdb_file_path, pdbqt_file_path, config_file_path, input
     form_protein_ligands_complexes(folder_name, final_csv)
 
 def handle_posebusters(folder_name, lower_range, higher_range, pdb_file_path):
+    run_script("4_pdbqt_to_sdf.sh", folder_name)
     extraction_based_on_threshold_for_pb(folder_name, lower_range, higher_range)
-    subprocess.run(["/bin/bash", "/home/shifath/AGANDOCK/main/streamlit/scripts/5_posebusters_filter.sh", folder_name, pdb_file_path],
-                   text=True)
+    script_path = os.path.join(SCRIPT_BASE, "5_posebusters_filter.sh")
+    if not os.path.isfile(script_path):
+        raise FileNotFoundError(f"Script {script_path} not found")
+    subprocess.run(["/bin/bash", script_path, folder_name, pdb_file_path], text=True)
     process_pb_csv(folder_name)
-    final_output_with_pb(folder_name, passes=19) # Assuming a default pass threshold
+    final_output_with_pb(folder_name, passes=19)  # Assuming a default pass threshold

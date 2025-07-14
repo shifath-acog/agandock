@@ -1,0 +1,3 @@
+Name,SMILES,Docking score (kcal/mol),Ligand efficiency
+Ligand1,CCO,-2.56,-0.85
+Ligand2,C1=CC=CC=C1,-4.04,-0.67

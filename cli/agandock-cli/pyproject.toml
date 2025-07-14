@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=64.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agandock-cli"
+version = "0.1.0"
+description = "AGANDOCK CLI for molecular docking"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [
+    { name = "Kailash Lohar", email = "kailashlohariitkgp@gmail.com" }
+]
+dependencies = [
+    "pandas",
+    "rdkit",
+    "openbabel-wheel",
+    "psutil",
+    "torch",
+    "posebusters"
+]
+
+[project.scripts]
+agandock = "agandock_cli.cli:main"

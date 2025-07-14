@@ -1,0 +1,2 @@
+/home/shifath/AGANDOCK/agandock_test_run_multi_101/pipeline_files/5_pdbqt_for_docking/Ligand1.pdbqt
+/home/shifath/AGANDOCK/agandock_test_run_multi_101/pipeline_files/5_pdbqt_for_docking/Ligand2.pdbqt

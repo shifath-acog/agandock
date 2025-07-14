@@ -22,19 +22,21 @@ RUN conda env create -f streamlit.yaml && conda clean --all --yes \
 # Install Boost 1.77.0
 RUN wget https://sourceforge.net/projects/boost/files/boost/1.77.0/boost_1_77_0.tar.gz/download -O boost_1_77_0.tar.gz && \
     tar -xzf boost_1_77_0.tar.gz && rm boost_1_77_0.tar.gz
-    
+
 # Install NVIDIA Container Runtime
 RUN curl -s -L https://nvidia.github.io/nvidia-container-runtime/gpgkey | apt-key add - \
     && distribution=$(. /etc/os-release; echo $ID$VERSION_ID) \
-    && curl -s -L https://nvidia.github.io/nvidia-container-runtime/$distribution/nvidia-container-runtime.list | tee /etc/apt/sources.list.d/nvidia-container-runtime.list 
+    && curl -s -L https://nvidia.github.io/nvidia-container-runtime/$distribution/nvidia-container-runtime.list | tee /etc/apt/sources.list.d/nvidia-container-runtime.list
 RUN mkdir -p /etc/OpenCL/vendors && echo "libnvidia-opencl.so.1" > /etc/OpenCL/vendors/nvidia.icd
 
 # Copy and Compile Uni-Dock
 COPY /unidock /home
-RUN cmake -B build && cmake --build build -j`nprocs` && cmake --install build 
+RUN cmake -B build && cmake --build build -j`nprocs` && cmake --install build
+
+# Set AGANDOCK_SCRIPTS environment variable
+ENV AGANDOCK_SCRIPTS=/home/shifath/AGANDOCK/main/streamlit/scripts
 
 WORKDIR /home
 
 # Expose Streamlit Port
-
 CMD ["tail", "-f", "/dev/null"]
