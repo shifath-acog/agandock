@@ -109,7 +109,29 @@ docker exec agandock_cli_app agandock run_filter \
   --pdb_file /app/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1.pdb
 ```
 
+### d. Run PLIP Analysis
+
+This command performs Protein-Ligand Interaction Profiler (PLIP) analysis on docked complexes. It can analyze all ligands or only those that passed PoseBusters filtration, and allows for filtering by affinity score range.
+
+**Example (Analyze all ligands):**
+```bash
+docker exec agandock_cli_app agandock run_plip \
+  /app/agandock_test_run_multi \
+  --pdb_file /app/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1.pdb
+```
+
+**Example (Analyze PoseBusters filtered ligands within an affinity range):**
+```bash
+docker exec agandock_cli_app agandock run_plip \
+  /app/agandock_test_run_multi \
+  --pdb_file /app/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1.pdb \
+  --lower_range -5.0 \
+  --higher_range 0.0 \
+  --use_pb_filtered_ligands
+```
+
 ---
+
 
 ## 5. Input Files
 

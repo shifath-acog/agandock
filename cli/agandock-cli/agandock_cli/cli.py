@@ -1,6 +1,6 @@
 import argparse
 import os
-from agandock_cli.scripts.docking_utils import run_docking_pipeline, handle_posebusters
+from agandock_cli.scripts.docking_utils import run_docking_pipeline, handle_posebusters, run_plip_analysis
 
 def main():
     parser = argparse.ArgumentParser(description="CLI for docking and filtration.")
@@ -22,6 +22,14 @@ def main():
     filter_parser.add_argument('lower_range', type=float, help='Lower affinity threshold')
     filter_parser.add_argument('higher_range', type=float, help='Higher affinity threshold')
     filter_parser.add_argument('--pdb_file', type=str, required=True, help='Path to the PDB file (for PoseBusters)')
+
+    # Subparser for PLIP analysis
+    plip_parser = subparsers.add_parser('run_plip', help='Run PLIP analysis')
+    plip_parser.add_argument('folder_name', type=str, help='Folder containing results for PLIP analysis')
+    plip_parser.add_argument('--pdb_file', type=str, required=True, help='Path to the PDB file (receptor)')
+    plip_parser.add_argument('--lower_range', type=float, help='Lower affinity threshold for filtering ligands')
+    plip_parser.add_argument('--higher_range', type=float, help='Higher affinity threshold for filtering ligands')
+    plip_parser.add_argument('--use_pb_filtered_ligands', action='store_true', help='Use PoseBusters filtered ligands for PLIP analysis')
 
     args = parser.parse_args()
 
@@ -47,6 +55,12 @@ def main():
         print(f"Running filtration for folder: {folder_name} with range: {args.lower_range} to {args.higher_range}")
         handle_posebusters(folder_name, args.lower_range, args.higher_range, pdb_file)
         print("Filtration completed.")
+    elif args.command == 'run_plip':
+        folder_name = os.path.abspath(args.folder_name)
+        pdb_file = os.path.abspath(args.pdb_file)
+        print(f"Running PLIP analysis for folder: {folder_name}")
+        run_plip_analysis(folder_name, pdb_file, args.lower_range, args.higher_range, args.use_pb_filtered_ligands)
+        print("PLIP analysis completed.")
     else:
         parser.print_help()
 

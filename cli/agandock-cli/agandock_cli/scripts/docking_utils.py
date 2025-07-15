@@ -704,3 +704,79 @@ def handle_posebusters(folder_name, lower_range, higher_range, pdb_file_path):
     subprocess.run(["/bin/bash", script_path, folder_name, pdb_file_path], text=True)
     process_pb_csv(folder_name)
     final_output_with_pb(folder_name, passes=19)  # Assuming a default pass threshold
+
+def run_plip_analysis(folder_name, pdb_file_path, lower_range=None, higher_range=None, use_pb_filtered_ligands=False):
+    print(f"Running PLIP analysis for folder: {folder_name}")
+
+    csv_file = "output.csv" if not use_pb_filtered_ligands else "output_with_pb.csv"
+    csv_path = os.path.join(folder_name, csv_file)
+
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError(f"CSV file not found: {csv_path}. Please ensure docking and/or PoseBusters filtration has been run.")
+
+    df = pd.read_csv(csv_path)
+
+    if lower_range is not None and higher_range is not None:
+        df_filtered = df[(df['Docking score (kcal/mol)'] >= lower_range) &
+                         (df['Docking score (kcal/mol)'] <= higher_range)]
+        print(f"Filtered {len(df_filtered)} compounds for PLIP analysis based on affinity range.")
+    else:
+        df_filtered = df
+        print(f"Analyzing all {len(df_filtered)} compounds for PLIP analysis.")
+
+    plc_all_ligands_folder = os.path.join(folder_name, "plc_all_ligands")
+
+    if os.path.exists(plc_all_ligands_folder):
+        shutil.rmtree(plc_all_ligands_folder)
+    os.makedirs(plc_all_ligands_folder)
+
+    protein_ligand_complexes_folder = os.path.join(folder_name, "plc")
+    selected_ligands = df_filtered['Name'].tolist()
+
+    for ligand in selected_ligands:
+        pdb_file_name = f"{ligand}.pdb"
+        pdb_source_path = os.path.join(protein_ligand_complexes_folder, pdb_file_name)
+
+        if os.path.exists(pdb_source_path):
+            pdb_destination_path = os.path.join(plc_all_ligands_folder, pdb_file_name)
+            shutil.copy(pdb_source_path, pdb_destination_path)
+        else:
+            print(f"Warning: {pdb_file_name} not found in {protein_ligand_complexes_folder}")
+
+    plip_path = os.path.abspath(os.path.join(SCRIPT_BASE, "plip"))
+    pdb_path = os.path.abspath(plc_all_ligands_folder)
+    output_path = os.path.abspath(os.path.join(folder_name, "output_plip_files"))
+
+    if os.path.exists(output_path):
+        shutil.rmtree(output_path)
+    os.makedirs(output_path, exist_ok=True)
+
+    os.environ["PYTHONPATH"] = plip_path
+
+    pdb_files = [f for f in os.listdir(pdb_path) if f.endswith(".pdb")]
+    for pdb_file in pdb_files:
+        input_file = os.path.join(pdb_path, pdb_file)
+        pdb_output_dir = os.path.join(output_path, os.path.splitext(pdb_file)[0])
+        os.makedirs(pdb_output_dir, exist_ok=True)
+
+        plip_cmd_path = os.path.join(plip_path, "plipcmd.py")
+        command = ["python3", plip_cmd_path, "-f", input_file, "-vxt", "-o", pdb_output_dir]
+        print(f"Executing PLIP command: {' '.join(command)}")
+        result = subprocess.run(command, cwd=pdb_path, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result.returncode != 0:
+            print(f"Error running plipcmd.py for {pdb_file}:")
+            print(f"STDOUT: {result.stdout.decode()}")
+            print(f"STDERR: {result.stderr.decode()}")
+            raise RuntimeError(f"plipcmd.py failed for {pdb_file}")
+        if result.returncode != 0:
+            print(f"Error running plipcmd.py for {pdb_file}:")
+            print(f"STDOUT: {result.stdout.decode()}")
+            print(f"STDERR: {result.stderr.decode()}")
+            raise RuntimeError(f"plipcmd.py failed for {pdb_file}")
+
+    post_process_command = ["python3", os.path.join(plip_path, "plip_post_process.py"), "-d", output_path]
+    print(f"Executing PLIP post-process command: {' '.join(post_process_command)}")
+    subprocess.run(post_process_command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    print(f"PLIP analysis completed. Results saved to: {output_path}")
+    return output_path

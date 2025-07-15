@@ -17,7 +17,7 @@ RUN apt-get update && \
 ENV PATH=/miniconda/bin:$PATH
 COPY devops/nextjs/nextjs.yaml .
 RUN conda env create -f nextjs.yaml && conda clean --all --yes \
-    && pip install posebusters
+    && pip install posebusters lxml
 
 # Install Boost 1.77.0
 RUN wget https://sourceforge.net/projects/boost/files/boost/1.77.0/boost_1_77_0.tar.gz/download -O boost_1_77_0.tar.gz && \
