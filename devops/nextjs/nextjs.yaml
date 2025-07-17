@@ -1,17 +1,15 @@
 name: streamlit_env
 channels:
-  - nvidia
   - pytorch
+  - nvidia
   - conda-forge
   - defaults
-  - schrodinger
 dependencies:
   - python=3.9.15
-  - cudatoolkit=11.5 
-  - pytorch
-  - streamlit
+  - cudatoolkit=11.5
+  - pytorch=2.0.1
   - rdkit
-  - openbabel  
+  - openbabel
   - numpy
   - pandas
   - scipy
@@ -20,7 +18,6 @@ dependencies:
   - seaborn
   - biopython
   - python-graphviz
-  - pymol
   - pip
   - pip:
       - jupyterlab
@@ -29,11 +26,6 @@ dependencies:
       - prody
       - posebusters
       - standardiser
-      - streamlit-shadcn-ui
       - pygwalker
-      - py3Dmol
-      - nglview
-      - streamlit-aggrid
       - lxml
       - stmol==0.0.9
-
