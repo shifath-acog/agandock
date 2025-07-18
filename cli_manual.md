@@ -1,80 +1,49 @@
-# AGANDOCK CLI Manual
 
-This document provides detailed instructions on how to clone the AGANDOCK repository, set up the environment using Docker, and run the command-line interface (CLI) for molecular docking and filtering.
+# Overview of the `agandock` CLI
 
-## Prerequisites
+The CLI, executed via:
 
-Before you begin, ensure you have the following software installed on your system:
-- **Git:** For cloning the repository.
-- **Docker:** For building and running the containerized application environment.
-- **NVIDIA GPU Drivers:** Required for running Uni-Dock with GPU acceleration.
+```bash
+docker exec agandock_cli_app agandock [COMMAND]
+```
+
+uses:
+
+- **Uni-Dock** for docking (GPU-accelerated, leveraging `cudatoolkit=11.5` from `nextjs.yaml`)
+- **PoseBusters** for pose validation
+- **PLIP** for interaction analysis
+
+It relies on dependencies like `rdkit`, `openbabel-wheel`, and `psutil` (from `requirements.txt`) for SMILES parsing, molecular conversions, and resource monitoring. The CLI is designed for both single-molecule and high-throughput docking, with outputs suitable for further analysis or visualization (e.g., in the Streamlit app via `streamlit_env`).
 
 ---
 
-## 1. Clone the Repository
+## Commands, Inputs, and Outputs
 
-First, clone the AGANDOCK repository to your local machine using the following command:
+### 1. `agandock run_docking`
 
-```bash
-git clone https://github.com/shifath-acog/agandock.git
-cd agandock
-```
+**Purpose**: Docks ligands to a protein target using Uni-Dock, producing docking scores and pose files.
 
----
+#### Inputs
 
-## 2. Set Up the Docker Environment
+- **Positional Argument**:
+  - `folder_name`: Absolute path to the output directory  
+    e.g., `/app/agandock_test_run` for single SMILES, `/app/agandock_test_run_multi` for multiple SMILES.
 
-The CLI runs inside a Docker container that includes all necessary dependencies, such as Uni-Dock, Open Babel, and PoseBusters.
+- **Options**:
+  - `--pdb_file <path>`: Path to the protein structure PDB file  
+    e.g., `/app/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1.pdb`
+  - `--pdbqt_file <path>`: Path to the protein structure PDBQT file
+  - `--config_file <path>`: Path to the Uni-Dock configuration file (defines the docking search space)
+  - `--input_type {Multiple SMILES,Single SMILES}`: Specifies the input type
+  - `--input_smiles <SMILES>`: A single SMILES string (required for Single SMILES)
+  - `--input_csv <path>`: Path to CSV with SMILES (required for Multiple SMILES)
 
-### a. Build the Docker Image
+#### Example Commands
 
-Navigate to the project's root directory and run the following command to build the Docker image. This may take some time as it downloads and installs all dependencies.
-
-```bash
-docker build -t agandock-env -f devops/nextjs/Dockerfile .
-```
-
-### b. Run the Docker Container
-
-Once the image is built, run a container from it. This command starts the container in detached mode, grants it access to all available GPUs, and mounts the local project directory into the container.
+**Single SMILES**:
 
 ```bash
-docker run -dit --gpus all --name agandock_cli_app -v "$(pwd)":/app agandock-env
-```
-- `--gpus all`: Provides the container with access to the host's GPUs.
-- `--name agandock_cli_app`: Assigns a memorable name to the container.
-- `-v "$(pwd)":/app`: Mounts your current project directory into the container, allowing the CLI to read inputs and write outputs directly to your project folder.
-
----
-
-## 3. Install the CLI Package
-
-With the container running, install the `agandock-cli` package inside the container's Python environment. This makes the `agandock` command available.
-
-```bash
-docker exec agandock_cli_app pip install -e /app/cli/agandock-cli
-```
-- `pip install -e`: Installs the package in "editable" mode, which means any changes you make to the local source code will be immediately reflected inside the container without needing to reinstall.
-
----
-
-## 4. Running the CLI
-
-All commands are executed via `docker exec` on the running container.
-
-### Command Structure
-
-The basic structure for running a command is:
-`docker exec agandock_cli_app agandock [COMMAND] [ARGUMENTS...]`
-
-### a. Run Docking (Single SMILES)
-
-This command runs a docking pipeline for a single molecule provided as a SMILES string.
-
-**Example:**
-```bash
-docker exec agandock_cli_app agandock run_docking \
-  /app/agandock_test_run \
+docker exec agandock_cli_app agandock run_docking /app/agandock_test_run \
   --pdb_file /app/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1.pdb \
   --pdbqt_file /app/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1.pdbqt \
   --config_file /app/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1_conf.txt \
@@ -82,14 +51,10 @@ docker exec agandock_cli_app agandock run_docking \
   --input_smiles CCO
 ```
 
-### b. Run Docking (Multiple SMILES)
+**Multiple SMILES**:
 
-This command runs a docking pipeline for multiple molecules provided in a CSV file.
-
-**Example:**
 ```bash
-docker exec agandock_cli_app agandock run_docking \
-  /app/agandock_test_run_multi \
+docker exec agandock_cli_app agandock run_docking /app/agandock_test_run_multi \
   --pdb_file /app/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1.pdb \
   --pdbqt_file /app/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1.pdbqt \
   --config_file /app/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1_conf.txt \
@@ -97,73 +62,168 @@ docker exec agandock_cli_app agandock run_docking \
   --input_csv /app/cli/agandock-cli/agandock_cli/inputs/ligands.csv
 ```
 
-### c. Run Filter
+#### Outputs
 
-This command filters the results of a previous docking run based on an affinity score range and runs PoseBusters analysis.
+**Single SMILES**:
 
-**Example:**
+- **Directory**: `/app/agandock_test_run`
+- **Files**:
+  - `output.csv`: Docking results
+  - `pipeline_files/`: Intermediate files (SDF, MOL2, PDBQT)
+
+**Example `output.csv`**:
+
+```csv
+Name,SMILES,Docking score (kcal/mol),Ligand efficiency
+agan1,CCO,-2.55,-0.85
+```
+
+---
+
+**Multiple SMILES**:
+
+- **Directory**: `/app/agandock_test_run_multi`
+- **Files**:
+  - `output.csv`: Results for all ligands
+  - `pipeline_files/`: Individual pose files
+
+**Example `output.csv`**:
+
+```csv
+Name,SMILES,Docking score (kcal/mol),Ligand efficiency
+ligand1,CCO,-2.55,-0.85
+ligand2,CNC,-3.10,-0.77
+```
+
+---
+
+### 2. `agandock run_filter`
+
+**Purpose**: Filters docking results based on affinity score and runs PoseBusters analysis.
+
+#### Inputs
+
+- **Positional Arguments**:
+  - `folder_name`: Path to the docking results directory
+  - `lower_range <float>`: Minimum docking score (e.g., `-5.0`)
+  - `higher_range <float>`: Maximum docking score (e.g., `0.0`)
+
+- **Options**:
+  - `--pdb_file <path>`: Protein PDB path
+
+#### Example Command
+
 ```bash
-docker exec agandock_cli_app agandock run_filter \
-  /app/agandock_test_run_multi \
-  -5.0 0.0 \
+docker exec agandock_cli_app agandock run_filter /app/agandock_test_run_multi -5.0 0.0 \
   --pdb_file /app/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1.pdb
 ```
 
-### d. Run PLIP Analysis
+#### Outputs
 
-This command performs Protein-Ligand Interaction Profiler (PLIP) analysis on docked complexes. It can analyze all ligands or only those that passed PoseBusters filtration, and allows for filtering by affinity score range.
+- **Directory**: `/app/agandock_test_run_multi`
+- **Files**:
+  - `output_with_pb.csv`: Valid poses
+  - `output_without_pb.csv`: Failed poses
+  - `pipeline_files/`: Updated with PoseBusters output
 
-**Example (Analyze all ligands):**
+**Example `output_with_pb.csv`**:
+
+```csv
+Name,SMILES,Docking score (kcal/mol),Ligand efficiency
+ligand1,CCO,-2.55,-0.85
+```
+
+**Example `output_without_pb.csv`**:
+
+```csv
+Name,SMILES,Docking score (kcal/mol),Ligand efficiency
+ligand2,CNC,-3.10,-0.77
+```
+
+---
+
+### 3. `agandock run_plip`
+
+**Purpose**: Performs PLIP analysis to identify protein-ligand interactions.
+
+#### Inputs
+
+- **Positional Argument**:
+  - `folder_name`: Path to docking results directory
+
+- **Options**:
+  - `--pdb_file <path>`: Protein PDB path
+  - `--lower_range <float>`: Minimum score filter (optional)
+  - `--higher_range <float>`: Maximum score filter (optional)
+  - `--use_pb_filtered_ligands`: Flag to use `output_with_pb.csv` only
+
+#### Example Commands
+
+**Analyze All Ligands**:
+
 ```bash
-docker exec agandock_cli_app agandock run_plip \
-  /app/agandock_test_run_multi \
+docker exec agandock_cli_app agandock run_plip /app/agandock_test_run_multi \
   --pdb_file /app/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1.pdb
 ```
 
-**Example (Analyze PoseBusters filtered ligands within an affinity range):**
+**Analyze PoseBusters-Filtered Ligands**:
+
 ```bash
-docker exec agandock_cli_app agandock run_plip \
-  /app/agandock_test_run_multi \
+docker exec agandock_cli_app agandock run_plip /app/agandock_test_run_multi \
   --pdb_file /app/cli/agandock-cli/agandock_cli/inputs/minD_APO_C1.pdb \
   --lower_range -5.0 \
   --higher_range 0.0 \
   --use_pb_filtered_ligands
 ```
 
----
+#### Outputs
 
-
-## 5. Input Files
-
-- **`folder_name` (Positional Argument):** The first argument for both `run_docking` and `run_filter`. This is the name of the directory where all output files for that specific run will be saved. **All paths must be absolute paths within the container's filesystem.**
-- **`--pdb_file`:** The absolute path to the receptor's PDB file.
-- **`--pdbqt_file`:** The absolute path to the receptor's PDBQT file.
-- **`--config_file`:** The absolute path to the Uni-Dock configuration file (e.g., `minD_APO_C1_conf.txt`), which specifies the docking search space.
-- **`--input_csv`:** (For multiple SMILES) The absolute path to a CSV file containing molecule information. It must have a "SMILES" column and an optional "Name" column.
-- **`--input_smiles`:** (For single SMILES) The SMILES string of the molecule to dock.
+- **Directory**: `/app/agandock_test_run_multi/plc`
+- **Files**:
+  - PLIP report files (e.g., `ligand1_plip_report.xml`)
+  - Complex PDBs (e.g., `ligand1_complex.pdb`)
 
 ---
 
-## 6. Output Files
+## Key Notes
 
-All output is saved in the `folder_name` directory you provide.
+### Single vs. Multiple SMILES
 
-- **`output.csv`**: The main results file, containing docking scores and ligand efficiency for all successfully docked compounds.
-- **`output_with_pb.csv`**: (Filter command) Results for compounds that passed the PoseBusters check.
-- **`output_without_pb.csv`**: (Filter command) Results for compounds that failed the PoseBusters check.
-- **`pipeline_files/`**: A subdirectory containing all intermediate files generated during the process (SDF, MOL2, PDBQT, etc.). This is useful for debugging.
-- **`plc/`**: A subdirectory containing the final protein-ligand complexes in PDB format.
+| Mode            | Description                                                                 |
+|-----------------|-----------------------------------------------------------------------------|
+| Single SMILES   | One ligand (e.g., CCO), one row in `output.csv`, one pose file              |
+| Multiple SMILES | Many ligands from a CSV, multi-row output, individual pose files            |
+
+### Command Usage
+
+- `run_filter` and `run_plip` operate on `run_docking` outputs
+- `run_filter` is often used with Multiple SMILES for screening
+
+### Dependencies
+
+- `rdkit`, `openbabel-wheel`: Molecular format parsing/conversion
+- `posebusters`: Validates poses
+- `psutil`: Resource monitoring
+- `Uni-Dock`: GPU docking via `cudatoolkit=11.5` in `nextjs.yaml`
+
+### GPU Usage
+
+- Uses `nvidia/cuda:12.2.0-devel-ubuntu22.04` base image
+- No `pytorch` in `requirements.txt`, so GPU used mainly for Uni-Dock
+
 
 ---
 
-## 7. Stopping and Removing the Container
+## Example Workflow
 
-When you are finished, you can stop and remove the Docker container to free up system resources.
+1. **Dock Ligands**  
+   Use `run_docking` with SMILES  
+   → Output: `output.csv`, `pipeline_files/`
 
-```bash
-# Stop the container
-docker stop agandock_cli_app
+2. **Filter Results**  
+   Use `run_filter` with score range  
+   → Output: `output_with_pb.csv`, `output_without_pb.csv`
 
-# Remove the container
-docker rm agandock_cli_app
-```
+3. **Analyze Interactions**  
+   Use `run_plip`, optionally filtered  
+   → Output: `plc/` with PLIP reports and complexes
