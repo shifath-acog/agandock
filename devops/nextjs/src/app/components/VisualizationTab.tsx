@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, FileText, Info } from 'lucide-react';
+import { Loader2, FileText, Info, Eye, EyeOff, ZoomIn, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import * as NGL from 'ngl';
 
@@ -24,8 +24,12 @@ export function VisualizationTab({}: VisualizationTabProps) {
   const [loading, setLoading] = useState<boolean>(false);
   const [viewerLoading, setViewerLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [showReceptor, setShowReceptor] = useState<boolean>(true);
+  const [showLigand, setShowLigand] = useState<boolean>(true);
   const stageRef = useRef<NGL.Stage | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const receptorReprRef = useRef<NGL.RepresentationElement | null>(null);
+  const ligandReprRef = useRef<NGL.RepresentationElement | null>(null);
 
   // Fetch experiment folders on mount
   useEffect(() => {
@@ -82,22 +86,24 @@ export function VisualizationTab({}: VisualizationTabProps) {
     setError(null);
 
     try {
-      // Destroy existing stage if any
-      if (stageRef.current) {
-        stageRef.current.dispose();
-        stageRef.current = null;
+      // Initialize NGL stage if it doesn't exist
+      if (!stageRef.current) {
+        stageRef.current = new NGL.Stage(containerRef.current, {
+          backgroundColor: 'white',
+        });
+      } else {
+        // Clear existing components if stage already exists
+        stageRef.current.removeAllComponents();
       }
-
-      // Initialize new NGL stage
-      stageRef.current = new NGL.Stage(containerRef.current, {
-        backgroundColor: 'white',
-      });
 
       // Load receptor PDB
       const receptorUrl = `/api/get-file?file=${encodeURIComponent(plcData[selectedFolder].receptorPdb)}`;
       const receptorComponent = await stageRef.current.loadFile(receptorUrl, { ext: 'pdb' });
       if (receptorComponent instanceof NGL.StructureComponent) {
-        receptorComponent.addRepresentation('cartoon', { colorScheme: 'residueindex' });
+        receptorReprRef.current = receptorComponent.addRepresentation('cartoon', {
+          colorScheme: 'residueindex',
+          visible: showReceptor,
+        });
       } else {
         console.warn('Receptor file loaded but not a StructureComponent:', receptorComponent);
       }
@@ -106,7 +112,10 @@ export function VisualizationTab({}: VisualizationTabProps) {
       const ligandUrl = `/api/get-file?file=${encodeURIComponent(`/app/${selectedFolder}/plc/${selectedPdb}`)}`;
       const ligandComponent = await stageRef.current.loadFile(ligandUrl, { ext: 'pdb' });
       if (ligandComponent instanceof NGL.StructureComponent) {
-        ligandComponent.addRepresentation('licorice', { colorScheme: 'element' });
+        ligandReprRef.current = ligandComponent.addRepresentation('licorice', {
+          colorScheme: 'element',
+          visible: showLigand,
+        });
       } else {
         console.warn('Ligand file loaded but not a StructureComponent:', ligandComponent);
       }
@@ -120,6 +129,47 @@ export function VisualizationTab({}: VisualizationTabProps) {
       console.error(err);
     } finally {
       setViewerLoading(false);
+    }
+  };
+
+  // Toggle receptor visibility
+  const toggleReceptor = () => {
+    if (receptorReprRef.current) {
+      receptorReprRef.current.setVisibility(!showReceptor);
+      setShowReceptor(!showReceptor);
+    }
+  };
+
+  // Toggle ligand visibility
+  const toggleLigand = () => {
+    if (ligandReprRef.current) {
+      ligandReprRef.current.setVisibility(!showLigand);
+      setShowLigand(!showLigand);
+    }
+  };
+
+  // Zoom to binding site
+  const zoomToBindingSite = () => {
+    if (stageRef.current && ligandReprRef.current) {
+      const selection = new NGL.Selection('within 5 of :A');
+    }
+  };
+
+  // Export PNG snapshot
+  const exportPng = () => {
+    if (stageRef.current) {
+      stageRef.current.viewer.makeImage({
+        antialias: true,
+        trim: false,
+        transparent: false,
+      }).then((blob: Blob) => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `docked_pose_${selectedPdb}.png`;
+        link.click();
+        URL.revokeObjectURL(url);
+      });
     }
   };
 
@@ -166,25 +216,64 @@ export function VisualizationTab({}: VisualizationTabProps) {
 
       {experimentFolders.length > 0 && (
         <div className="space-y-6">
-          <Select
-            value={selectedFolder ?? undefined}
-            onValueChange={(value) => {
-              setSelectedFolder(value);
-              setError(null);
-              setSelectedPdb('');
-            }}
-          >
-            <SelectTrigger className="w-full max-w-md h-12 border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-500">
-              <SelectValue placeholder="Select an experiment" />
-            </SelectTrigger>
-            <SelectContent>
-              {experimentFolders.map((folder) => (
-                <SelectItem key={folder} value={folder}>
-                  {folder}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-4 flex-wrap">
+            <Select
+              value={selectedFolder ?? undefined}
+              onValueChange={(value) => {
+                setSelectedFolder(value);
+                setError(null);
+                setSelectedPdb('');
+                setShowReceptor(true);
+                setShowLigand(true);
+              }}
+            >
+              <SelectTrigger className="w-full max-w-xs h-12 border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-500">
+                <SelectValue placeholder="Select an experiment" />
+              </SelectTrigger>
+              <SelectContent>
+                {experimentFolders.map((folder) => (
+                  <SelectItem key={folder} value={folder}>
+                    {folder}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {selectedFolder && plcData[selectedFolder] && (
+              <Select
+                value={selectedPdb}
+                onValueChange={(value) => {
+                  setSelectedPdb(value);
+                  setShowReceptor(true);
+                  setShowLigand(true);
+                }}
+              >
+                <SelectTrigger className="w-full max-w-xs h-12 border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-500">
+                  <SelectValue placeholder="Select a ligand PDB file" />
+                </SelectTrigger>
+                <SelectContent>
+                  {plcData[selectedFolder].pdbFiles.map((pdb) => (
+                    <SelectItem key={pdb} value={pdb}>
+                      {pdb}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            <Button
+              onClick={showDockedPose}
+              disabled={!selectedPdb || !selectedFolder || !plcData[selectedFolder]?.receptorPdb || viewerLoading}
+              className="flex items-center gap-2 bg-black hover:bg-gray-900 text-white text-sm disabled:bg-gray-400"
+            >
+              {viewerLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="h-4 w-4" />
+              )}
+              Show Docked Pose
+            </Button>
+          </div>
 
           {selectedFolder && plcData[selectedFolder] && (
             <div className="space-y-6">
@@ -202,35 +291,38 @@ export function VisualizationTab({}: VisualizationTabProps) {
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center gap-4">
-                    <Select
-                      value={selectedPdb}
-                      onValueChange={setSelectedPdb}
-                    >
-                      <SelectTrigger className="w-full max-w-md h-12 border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-500">
-                        <SelectValue placeholder="Select a ligand PDB file" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {plcData[selectedFolder].pdbFiles.map((pdb) => (
-                          <SelectItem key={pdb} value={pdb}>
-                            {pdb}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      onClick={showDockedPose}
-                      disabled={!selectedPdb || !plcData[selectedFolder].receptorPdb || viewerLoading}
-                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm disabled:bg-gray-400"
-                    >
-                      {viewerLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <FileText className="h-4 w-4" />
-                      )}
-                      Show Docked Pose
-                    </Button>
-                  </div>
+                  {selectedPdb && plcData[selectedFolder].receptorPdb && (
+                    <div className="flex flex-wrap gap-4">
+                      <Button
+                        onClick={toggleReceptor}
+                        className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white text-sm"
+                      >
+                        {showReceptor ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {showReceptor ? 'Hide Receptor' : 'Show Receptor'}
+                      </Button>
+                      <Button
+                        onClick={toggleLigand}
+                        className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white text-sm"
+                      >
+                        {showLigand ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {showLigand ? 'Hide Ligand' : 'Show Ligand'}
+                      </Button>
+                      {/* <Button
+                        onClick={zoomToBindingSite}
+                        className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white text-sm"
+                      >
+                        <ZoomIn className="h-4 w-4" />
+                        Zoom to Binding Site
+                      </Button> */}
+                      <Button
+                        onClick={exportPng}
+                        className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white text-sm"
+                      >
+                        <Download className="h-4 w-4" />
+                        Export PNG
+                      </Button>
+                    </div>
+                  )}
 
                   {selectedPdb && plcData[selectedFolder].receptorPdb ? (
                     <div className="border border-gray-200 rounded-xl shadow-lg overflow-hidden">
